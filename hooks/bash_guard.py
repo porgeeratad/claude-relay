@@ -21,8 +21,9 @@ import sys
 
 I = re.I
 
-SECRET_FILE = (r"(?:\.env(?!\.(?:example|sample|template|dist|ts|js|mjs|cjs|py|go|rb|md)\b)(?:\.[\w.-]+)?\b|"
-               r"\.envrc\b|\.netrc\b|\.pgpass\b|\.npmrc\b|\.pypirc\b|credentials(?:\.json)?(?![\w.])|"
+SECRET_FILE = (r"(?:\.env(?!\.(?:example|sample|template|dist|d\.ts|ts|js|mjs|cjs|py|go|rb|md)\b)(?:\.[\w.-]+)?\b|"
+               r"\.envrc\b|\.netrc\b|\.pgpass\b|\.npmrc\b|\.pypirc\b|"
+               r"credentials(?:\.json)?(?:\.(?:bak|old|orig|save|backup))?(?![\w.])|"
                r"id_(?:rsa|ed25519|ecdsa)\b(?!\.pub))")
 CLAUDE_CFG = r"(?:\.claude\.json|claude_desktop_config\.json)"
 NAMES_ONLY = r"cut\s+-d\s*['\"]?=['\"]?\s+-f\s*1(?![-,\d])|\bgrep\s+-[a-zA-Z]*[cq]|\|\s*wc\b"
@@ -30,6 +31,16 @@ NAMES_ONLY = r"cut\s+-d\s*['\"]?=['\"]?\s+-f\s*1(?![-,\d])|\bgrep\s+-[a-zA-Z]*[c
 READERS = {"cat", "head", "tail", "less", "more", "bat", "strings", "diff", "sdiff", "comm", "sort", "uniq",
            "awk", "gawk", "xxd", "od", "hexdump", "base64", "nl", "tac", "rev", "tr", "column", "paste"}
 GREPS = {"grep", "egrep", "fgrep", "rg", "ag"}
+# A later pipeline stage that keeps only names/counts makes the earlier read harmless.
+NAMES_ONLY_STAGE = re.compile(r"^\s*(?:cut\b[^|]*-f\s*1(?![-,\d])|(?:e|f)?grep\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[cqlL]|wc\b)")
+# Strings run as commands elsewhere: their content is checked as a command of its own.
+CARRIERS = (
+    re.compile(r"\b(?:ba|z|da|k)?sh\s+(?:-\w+\s+)*-c\s+(['\"])((?:\\.|(?!\1).)*)\1", re.S),
+    re.compile(r"\beval\s+(['\"])((?:\\.|(?!\1).)*)\1", re.S),
+    re.compile(r"\bssh\b[^'\"|;&\n]*(['\"])((?:\\.|(?!\1).)*)\1", re.S),
+)
+TERMINAL = re.compile(r"/dev/(?:stdout|stderr|tty|fd/[12])$")
+SUBSTITUTION = re.compile(r"[<>$]\(([^()]*)\)")  # <(...) >(...) $(...)
 PREFIXES = {"sudo", "command", "time", "nice", "nohup", "exec", "env"}
 QUOTED = re.compile(r"'([^']*)'|\"((?:\\.|[^\"\\])*)\"")
 REDIRECT = re.compile(r"(\d*|&)(>>?|<)(&?)\s*([^\s|;&<>]+)")
@@ -75,46 +86,62 @@ def unquote(cmd, keep=None):
     return QUOTED.sub(sub, cmd)
 
 
-def prints_file(cmd, target, readers):
-    """True when a command segment prints the contents of a file matching `target`."""
-    text = unquote(cmd, keep=target)
-    for seg in re.split(r"\|\||&&|[;|\n]|(?<![>&<])&(?![>&])", text):
-        to_file = []
+def stage_prints(stage, target, readers):
+    """True when one pipeline stage writes the contents of a `target` file to the terminal."""
+    to_file = []
 
-        def strip_redirect(m):
-            fd, op, dup, dest = m.groups()
-            if op == "<":
-                return f" {dest} "           # input file: still an argument for our purposes
-            if fd in ("", "1", "&") and not dup:
-                to_file.append(dest)        # stdout goes to a file, so nothing reaches the transcript
-            return " "
+    def strip_redirect(m):
+        fd, op, dup, dest = m.groups()
+        if op == "<":
+            return f" {dest} "                    # input file: still an argument for our purposes
+        if fd in ("", "1", "&") and not dup and not TERMINAL.match(dest):
+            to_file.append(dest)                 # stdout goes to a file, so nothing reaches the transcript
+        return " "
 
-        seg = REDIRECT.sub(strip_redirect, seg)
-        words = seg.split()
-        i = 0
-        while i < len(words) and (words[i] in PREFIXES or re.match(r"^[A-Za-z_]\w*=", words[i])):
-            i += 1
-        if to_file or i >= len(words):
+    words = REDIRECT.sub(strip_redirect, stage).split()
+    if to_file:
+        return False
+    lead = next((w for w in words if w not in PREFIXES and not re.match(r"^[A-Za-z_]\w*=", w)), "")
+    if lead in ("echo", "printf"):               # `echo cat .env` prints the words, not the file
+        return False
+    # The reader can sit anywhere: `docker exec app cat .env`, `timeout 5 cat .env`, `kubectl exec p -- cat .env`.
+    for i, word in enumerate(words):
+        head = os.path.basename(word)
+        if head not in readers and head not in GREPS and head not in ("sed", "cut"):
             continue
-        head, args = os.path.basename(words[i]), words[i + 1:]
+        args = words[i + 1:]
         short = "".join(a[1:] for a in args if re.match(r"^-[A-Za-z]", a))
         if head in GREPS:
             if re.search(r"[clqL]", short) or {"--count", "--files-with-matches", "--files-without-match",
                                                "--quiet", "--silent"} & set(args):
-                continue
+                return False
             if not re.search(r"[ef]", short):  # without -e/-f the first operand is the pattern, not a file
-                operands = [a for a in args if not a.startswith("-")]
-                args = operands[1:]
-        elif head == "sed":
-            if "i" in short or any(a.startswith("--in-place") for a in args):
-                continue
-        elif head == "cut":
-            if re.search(r"-f\s*1(?![-,\d])", seg):
-                continue
-        elif head not in readers:
-            continue
-        if any(re.search(target, a) for a in args):
-            return True
+                args = [a for a in args if not a.startswith("-")][1:]
+        elif head == "sed" and ("i" in short or any(a.startswith("--in-place") for a in args)):
+            return False
+        elif head == "cut" and re.search(r"-f\s*1(?![-,\d])", " ".join(args)):
+            return False
+        return any(re.search(target, a) for a in args)
+    return False
+
+
+def prints_file(cmd, target, readers, depth=0):
+    """True when some pipeline prints the contents of a file matching `target`."""
+    if depth < 3:
+        for carrier in CARRIERS:                 # bash -c '...', eval '...', ssh host '...'
+            for m in carrier.finditer(cmd):
+                if prints_file(m.group(2), target, readers, depth + 1):
+                    return True
+        for m in SUBSTITUTION.finditer(cmd):     # judge each substitution on its own
+            if prints_file(m.group(1), target, readers, depth + 1):
+                return True
+    text = unquote(SUBSTITUTION.sub(" _ ", cmd), keep=target)
+    for pipeline in re.split(r"\|\||&&|[;\n]|(?<![>&<|])&(?![>&])", text):
+        stages = pipeline.split("|")
+        for i, stage in enumerate(stages):
+            if stage_prints(stage, target, readers) and \
+                    not any(NAMES_ONLY_STAGE.search(later) for later in stages[i + 1:]):
+                return True
     return False
 
 
@@ -183,7 +210,10 @@ def rules(cmd, body):
                  r"[^'\"\s|;&]*(key|token|secret|webhook|passw)[^'\"\s|;&]*\1(?:\s|$)", cmd, I):
         yield "S7", ("grep -v is not redaction: any secret whose line doesn't match the pattern gets printed. "
                      "Print names only, e.g. `cut -d= -f1 FILE`.")
-    if prints_file(cmd, SECRET_FILE, READERS | {"jq"}):
+    if prints_file(cmd, SECRET_FILE, READERS | {"jq"}) or (
+            re.search(r"\b(python3?|node|ruby|perl)\b", cmd) and
+            re.search(r"(open|read_text|read_bytes|readFileSync|File\.read)\s*\(\s*['\"][^'\"\n]*" + SECRET_FILE +
+                      r"['\"]\s*(?:\)|,\s*['\"]r)", body)):
         yield "S8", ("Reading a secret file prints its values. Names only: `cut -d= -f1 .env` · "
                      "presence: `grep -c '^NAME=' .env`.")
 
