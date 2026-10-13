@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# pre-commit — refuse a commit that would add private references to this public repo.
+#
+# Activated once per clone with:  git config core.hooksPath .githooks
+# Findings print as path:line: [rule] text. Fix the line, or put the marker `leak-allow`
+# on it when it is intentional. `git commit --no-verify` skips this hook — CI runs the
+# same check in `all` mode, so a skipped hook only moves the failure to the pull request.
+
+root=$(git rev-parse --show-toplevel) || exit 2
+exec "$root/scripts/leak-check.sh" staged

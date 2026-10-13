@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  leak-check:
+    # macOS is in the matrix on purpose: the script must work with bash 3.2 + BSD grep.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: leak-check (all tracked files)
+        run: scripts/leak-check.sh all
+      - name: leak-check under /bin/bash 3.2 (macOS only)
+        if: runner.os == 'macOS'
+        run: |
+          /bin/bash --version | head -1
+          /bin/bash scripts/leak-check.sh all
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: python version
+        run: python3 --version
+      - name: bash_guard hook tests
+        run: python3 tests/test_bash_guard.py
+      - name: relay_dir resolver tests
+        run: python3 tests/test_relay_dir.py

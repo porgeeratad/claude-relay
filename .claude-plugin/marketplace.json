@@ -1,0 +1,18 @@
+{
+  "name": "relay",
+  "owner": {
+    "name": "porgeeratad",
+    "url": "https://github.com/porgeeratad"
+  },
+  "metadata": {
+    "description": "Session handoff and multi-session workflow skills for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "relay",
+      "source": "./",
+      "description": "Honest session handoffs, pickup, peer handshakes, plan/build/review protocol, and a Bash secret-leak guard.",
+      "category": "workflow"
+    }
+  ]
+}

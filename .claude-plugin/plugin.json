@@ -1,0 +1,14 @@
+{
+  "name": "relay",
+  "displayName": "Relay",
+  "version": "0.1.0",
+  "description": "Hand work between Claude Code sessions without copy-paste: honest session handoffs, pickup, peer handshakes, a plan/build/review protocol, and a Bash guard that stops secret leaks.",
+  "author": {
+    "name": "porgeeratad",
+    "url": "https://github.com/porgeeratad"
+  },
+  "homepage": "https://github.com/porgeeratad/claude-relay",
+  "repository": "https://github.com/porgeeratad/claude-relay",
+  "license": "MIT",
+  "keywords": ["handoff", "session", "multi-session", "pair", "review", "hooks", "security", "workflow"]
+}
