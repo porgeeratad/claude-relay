@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-13
 
 - `/relay:handoff`: sweep → commit → handoff file → honest receipt + NEXT-CMD, delta mode on re-run
 - `/relay:pickup`: latest handoff → verify against git → continue from Pending
