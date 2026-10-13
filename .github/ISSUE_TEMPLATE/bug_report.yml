@@ -1,0 +1,31 @@
+name: Bug report
+description: A skill or the bash guard does not behave as documented
+labels: [bug]
+body:
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part
+      options: [/relay:handoff, /relay:pickup, /relay:peer, /relay:pair, bash guard (blocked something safe), bash guard (let something through), install / plugin loading]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got. For the guard, paste the exact command and the `[relay guard Sx]` message.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Claude Code version and OS
+      placeholder: "claude --version → 2.1.296 · macOS 15.4"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Anything else
+      description: "Handoff or thread excerpts help. Remove secrets, tokens and private paths before pasting."
+      render: text

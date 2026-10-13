@@ -1,8 +1,38 @@
-# Relay — session handoffs, independent review, and a hook that stops secret leaks
+**Language:** English | [ไทย](README.th.md) <!-- leak-allow -->
 
-[ภาษาไทย](README.th.md) <!-- leak-allow -->
+# Relay
 
-A small Claude Code plugin for people who run more than one session: one per day, one per terminal, or one model planning while another builds. It replaces copy-pasting between sessions with files and protocols, and it puts a hook in front of the shell habits that leak secrets.
+**Session handoffs, independent review, and a hook that stops secret leaks, for Claude Code.**
+
+A small plugin for people who run more than one session: one per day, one per terminal, or one model planning while
+another builds. It replaces copy-pasting between sessions with files and protocols, and it puts a hook in front of
+the shell habits that leak secrets into the transcript.
+
+![Relay: an honest handoff receipt and the bash guard blocking cat .env](docs/demo.svg)
+
+[![CI](https://github.com/porgeeratad/claude-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/porgeeratad/claude-relay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757)
+![Python](https://img.shields.io/badge/-Python%20(stdlib)-3776AB?logo=python&logoColor=white)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/porgeeratad)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/porgeeratad)
+
+> Unofficial community plugin, not affiliated with or endorsed by Anthropic. See [Disclaimer](#disclaimer).
+
+<table>
+<tr>
+<td width="50%" align="center">
+  <a href="https://ko-fi.com/porgeeratad"><strong>☕ Ko-fi</strong><br /><sub>Buy the next handoff a coffee</sub></a>
+</td>
+<td width="50%" align="center">
+  <a href="https://buymeacoffee.com/porgeeratad"><strong>🍪 Buy Me a Coffee</strong><br /><sub>Keep the guard awake</sub></a>
+</td>
+</tr>
+</table>
+
+---
+
+## What's inside
 
 | | What it does |
 |---|---|
@@ -104,18 +134,37 @@ Configure it through the environment Claude Code runs in (for example `"env"` in
 ## Development
 
 ```bash
-python3 tests/test_bash_guard.py
-python3 tests/test_relay_dir.py
-scripts/leak-check.sh all            # also runs as a pre-commit hook: git config core.hooksPath .githooks
+python3 tests/test_bash_guard.py && python3 tests/test_bash_guard_battery.py && python3 tests/test_relay_dir.py
+scripts/leak-check.sh all && bash tests/test_leak_check.sh   # leak-check also runs pre-commit: git config core.hooksPath .githooks
 claude plugin validate --strict .claude-plugin/plugin.json
 ```
 
-Contributions are welcome. Keep hooks stdlib-only, offline and fail-open, and add a test case for every rule change.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md): keep hooks stdlib-only, offline and fail-open,
+and add a deny case and an allow case for every guard change.
 
 ## Credits
 
-The plugin layout follows the conventions of [everything-claude-code](https://github.com/affaan-m/everything-claude-code). The skills were distilled from a personal multi-session workflow that has run since mid-2026.
+- The plugin layout follows the conventions of [everything-claude-code](https://github.com/affaan-m/everything-claude-code).
+- The skills were distilled from a personal multi-session workflow, and every guard rule exists because the mistake
+  it blocks actually happened.
+- v0.1.0 was itself built the relay way: one session built it, a second session on a different model reviewed it
+  through three rounds (173-case adversarial battery included).
+
+## Support
+
+If relay saves you a re-explained context or a leaked token, you can support it:
+
+- ☕ [ko-fi.com/porgeeratad](https://ko-fi.com/porgeeratad)
+- 🍪 [buymeacoffee.com/porgeeratad](https://buymeacoffee.com/porgeeratad)
+
+Stars, bug reports, new guard cases and pull requests help too.
+
+## Disclaimer
+
+Relay is an unofficial community plugin. It is not affiliated with, endorsed by, or supported by Anthropic. Claude
+and Claude Code are trademarks of Anthropic, PBC. The bash guard is a seatbelt, not a sandbox: it catches common
+accidents, not a determined attacker. Use Claude Code's permission rules and sandboxing for hard boundaries.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+[MIT](LICENSE).

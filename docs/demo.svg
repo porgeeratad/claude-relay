@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="560" viewBox="0 0 880 560" role="img" aria-label="Terminal: /relay:handoff prints an honest receipt and a NEXT-CMD block; the bash guard blocks cat .env and suggests a safe alternative">
+  <style>
+    .t { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 15px; fill: #d7dae0; white-space: pre; }
+    .dim { fill: #7f8796; }
+    .prompt { fill: #c792ea; }
+    .cmd { fill: #ffffff; font-weight: 600; }
+    .ok { fill: #8bd5a0; }
+    .warn { fill: #ffcb6b; }
+    .bad { fill: #ff6b6b; font-weight: 600; }
+    .hl { fill: #82aaff; }
+  </style>
+  <rect x="0" y="0" width="880" height="560" rx="12" fill="#1e2129"/>
+  <rect x="0" y="0" width="880" height="36" rx="12" fill="#2a2e38"/>
+  <rect x="0" y="24" width="880" height="12" fill="#2a2e38"/>
+  <circle cx="22" cy="18" r="6" fill="#ff5f57"/>
+  <circle cx="42" cy="18" r="6" fill="#febc2e"/>
+  <circle cx="62" cy="18" r="6" fill="#28c840"/>
+  <text x="440" y="23" text-anchor="middle" class="t dim" style="font-size:13px">claude · acme-api</text>
+
+  <text x="24" y="70" class="t"><tspan class="prompt">❯ </tspan><tspan class="cmd">/relay:handoff rate-limit</tspan></text>
+  <text x="24" y="98" class="t dim">── HANDOFF RECEIPT ──</text>
+  <text x="24" y="120" class="t">Repos      : acme-api@9b1f2c3 pushed <tspan class="ok">✔</tspan></text>
+  <text x="24" y="142" class="t">Handoff    : handoffs/HANDOFF-2026-10-13-rate-limit.md <tspan class="ok">✔</tspan></text>
+  <text x="24" y="164" class="t">Pending    : 3 items → ## Pending <tspan class="dim">(2 waiting on: user)</tspan></text>
+  <text x="24" y="186" class="t">Background : none</text>
+  <text x="24" y="208" class="t dim">─────────────────────</text>
+  <text x="24" y="230" class="t ok">CLOSED CLEAN ✔</text>
+  <text x="24" y="262" class="t dim">── NEXT-CMD ──</text>
+  <text x="24" y="284" class="t hl">/relay:pickup rate-limit</text>
+  <text x="24" y="306" class="t">first: flip RATE_LIMIT_V2=on on staging, watch rejects for 30 min</text>
+  <text x="24" y="328" class="t">watch: kubectl context must be staging before make deploy-staging</text>
+  <text x="24" y="350" class="t">waiting on user: staging window · default burst size (20 vs 50)</text>
+  <text x="24" y="372" class="t dim">──────────────</text>
+
+  <text x="24" y="418" class="t"><tspan class="prompt">❯ </tspan><tspan class="cmd">cat .env</tspan></text>
+  <text x="24" y="446" class="t"><tspan class="bad">✖ blocked </tspan><tspan class="warn">[relay guard S8]</tspan> Reading a secret file prints its values.</text>
+  <text x="24" y="468" class="t">  Names only: <tspan class="hl">cut -d= -f1 .env</tspan> · presence: <tspan class="hl">grep -c '^NAME=' .env</tspan></text>
+  <text x="24" y="508" class="t"><tspan class="prompt">❯ </tspan><tspan class="cmd">cut -d= -f1 .env</tspan></text>
+  <text x="24" y="532" class="t">DATABASE_URL  REDIS_URL  RATE_LIMIT_V2  STRIPE_KEY</text>
+</svg>

@@ -1,0 +1,11 @@
+name: Idea
+description: Suggest a new rule, skill behaviour or workflow
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should relay do, and what keeps going wrong without it?
+    validations:
+      required: true
