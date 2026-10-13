@@ -28,7 +28,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/relay_dir.py" --config      # push policy
 Use the printed paths as they are. Never guess a path.
 
 - If `<state>/<session-id>.json` exists, this session already ran a handoff: switch to **Delta mode** (below) and don't create a second file.
-- If `CLAUDE_CODE_SESSION_ID` is empty, use `unknown`, skip delta detection, and say so in the receipt.
+- If `CLAUDE_CODE_SESSION_ID` is empty, write `session: unknown` in the frontmatter, skip delta detection, **don't write a marker** (step 5), and add `Delta mode: unavailable (no session id)` to the receipt. A shared `unknown` marker would send the next session's delta into someone else's handoff.
 
 ## 1. Sweep (before writing anything)
 
@@ -48,7 +48,7 @@ Use the printed paths as they are. Never guess a path.
 ## 3. Write the handoff file
 
 - Path: `<handoffs>/HANDOFF-YYYY-MM-DD-<topic>.md`. Use the local date.
-- If that file exists, Read it and update it. Never overwrite a file written by another session.
+- If that file exists, Read it. When its `session:` is this session, update it. When it belongs to another session, don't touch it: name yours `<topic>-2` (`-3`, …) instead.
 - If an older handoff of this project has `status: current` and this one replaces it, set the old one to `superseded`.
 - Frontmatter and the required sections, in order, come from the spec: `## Context` · `## Status` · `## Changes` · `## Pending` · `## Gotchas` · `## Next session`.
 - Pending items read on their own without the chat. Order means priority, and items the user must decide end with `— waiting on: user`.
@@ -95,7 +95,7 @@ Background : none
 
 ## 5. Marker
 
-Write `<state>/<session-id>.json` with the schema from the spec (`closed_at`, `count`, `handoff`, `repos` → sha). It's what turns a second run into a delta.
+Write `<state>/<session-id>.json` with the schema from the spec (`closed_at`, `count`, `handoff`, `repos` → sha). It's what turns a second run into a delta. Skip this step when there's no session id.
 
 ## Delta mode (second run in the same session)
 

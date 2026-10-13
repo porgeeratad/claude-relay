@@ -20,18 +20,20 @@ Each call prints one absolute directory (created if missing).
 Base directory, first match wins:
 
 1. `$RELAY_DIR` (environment)
-2. `"dir"` in `.claude/relay.json` at the project root — a relative value is
-   resolved from the project root
+2. `"dir"` in `.claude/relay.json` at the toplevel of the current checkout
+   (`git rev-parse --show-toplevel`) — a relative value is resolved from that
+   toplevel, so in-repo handoffs follow the checkout: each worktree gets its own
 3. `${XDG_STATE_HOME:-~/.local/state}/claude-relay/<slug>/` — the default.
    It lives **outside the repository**, so a handoff can never end up in a
-   commit, a PR, or a public repo by accident. Teams that want handoffs
+   commit, a PR, or a public repo by accident. With this default every
+   worktree of one repository shares one directory. Teams that want handoffs
    shared through git opt in with `"dir": "docs/handoffs"`.
 
 Definitions:
 
-- **Project root** = parent of `git rev-parse --git-common-dir`, so every
-  worktree of one repository shares one relay directory. Outside git the
-  project root is the current directory.
+- **Project root** = parent of `git rev-parse --git-common-dir` (the main
+  worktree). It is what the default location's slug is built from. Outside
+  git the project root is the current directory.
 - **Slug** = the project root path with every character outside `[A-Za-z0-9]`
   replaced by `-`. Example: `/srv/work/acme-api` → `-srv-work-acme-api`.
 - **Session id** = `printenv CLAUDE_CODE_SESSION_ID` (set in every Bash call

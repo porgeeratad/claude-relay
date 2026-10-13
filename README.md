@@ -1,4 +1,4 @@
-# Relay — hand work between Claude Code sessions
+# Relay — session handoffs, independent review, and a hook that stops secret leaks
 
 [ภาษาไทย](README.th.md) <!-- leak-allow -->
 
@@ -81,12 +81,12 @@ Rules written in `CLAUDE.md` get broken again under pressure; a hook doesn't for
 | S5 | `env`, `printenv`, `docker exec … env`, `printenv *TOKEN*` | `env \| cut -d= -f1` |
 | S6 | `sed 's/…/REDACTED/'` without `-n` (unmatched lines print raw) | `sed -n 's/…/…/p'` |
 | S7 | `grep -v TOKEN` used as redaction | `cut -d= -f1` |
-| S8 | `cat`/`head`/`tail` of `.env*`, `.netrc`, `.pgpass`, `.npmrc`, credentials, private keys | `cut -d= -f1 .env` |
+| S8 | printing `.env*`, `.envrc`, `.netrc`, `.pgpass`, `.npmrc`, credentials or private keys with cat/grep/diff/sort/awk/jq/… (`grep -c`, `cut -d= -f1`, `sed -i` stay allowed) | `cut -d= -f1 .env` |
 | P1 | `pytest \| tail && git push`: the pipe hides the failure | run the tests first, or `set -o pipefail` |
 | P2 | `gh run watch \| tail` | `gh run watch <id> --exit-status` |
 | K1 | `pkill -f node` and other broad patterns | `kill <pid>` or a specific pattern |
 
-Heredoc bodies are ignored, so writing docs *about* these commands is fine. The hook fails open: an internal error never blocks you.
+Heredoc bodies and quoted text (commit messages, `echo '…'`) are ignored, so writing docs *about* these commands is fine. Output redirected to a file isn't treated as a leak. The hook fails open: an internal error never blocks you, and it's a seatbelt, not a sandbox (see [SECURITY.md](SECURITY.md)).
 
 Configure it through the environment Claude Code runs in (for example `"env"` in `settings.json`):
 

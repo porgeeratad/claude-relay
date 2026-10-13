@@ -21,10 +21,18 @@ import sys
 
 I = re.I
 
-SECRET_FILE = (r"(?:\.env(?!\.(?:example|sample|template|dist)\b)(?:\.[\w.-]+)?\b|\.netrc\b|"
-               r"\.pgpass\b|\.npmrc\b|\.pypirc\b|credentials(?:\.json)?\b|id_(?:rsa|ed25519|ecdsa)\b(?!\.pub))")
+SECRET_FILE = (r"(?:\.env(?!\.(?:example|sample|template|dist|ts|js|mjs|cjs|py|go|rb|md)\b)(?:\.[\w.-]+)?\b|"
+               r"\.envrc\b|\.netrc\b|\.pgpass\b|\.npmrc\b|\.pypirc\b|credentials(?:\.json)?(?![\w.])|"
+               r"id_(?:rsa|ed25519|ecdsa)\b(?!\.pub))")
 CLAUDE_CFG = r"(?:\.claude\.json|claude_desktop_config\.json)"
 NAMES_ONLY = r"cut\s+-d\s*['\"]?=['\"]?\s+-f\s*1(?![-,\d])|\bgrep\s+-[a-zA-Z]*[cq]|\|\s*wc\b"
+# Commands that print the files they are given.
+READERS = {"cat", "head", "tail", "less", "more", "bat", "strings", "diff", "sdiff", "comm", "sort", "uniq",
+           "awk", "gawk", "xxd", "od", "hexdump", "base64", "nl", "tac", "rev", "tr", "column", "paste"}
+GREPS = {"grep", "egrep", "fgrep", "rg", "ag"}
+PREFIXES = {"sudo", "command", "time", "nice", "nohup", "exec", "env"}
+QUOTED = re.compile(r"'([^']*)'|\"((?:\\.|[^\"\\])*)\"")
+REDIRECT = re.compile(r"(\d*|&)(>>?|<)(&?)\s*([^\s|;&<>]+)")
 SEG_START = r"(?:^|[;&|(]\s*|\$\(\s*|\bthen\s+|\bdo\s+)"
 
 RULES = {
@@ -56,6 +64,60 @@ def strip_heredoc_bodies(cmd):
     return "\n".join(out)
 
 
+def unquote(cmd, keep=None):
+    """Replace quoted strings with '' (text *about* a command isn't the command).
+    With `keep`, a quote that is just a path matching `keep` survives (`cat "$HOME/.env"`)."""
+    def sub(m):
+        inner = m.group(1) if m.group(1) is not None else m.group(2)
+        if keep and re.fullmatch(r"[~$\w/ .{}()@+-]*" + keep, inner or ""):
+            return m.group(0)
+        return "''"
+    return QUOTED.sub(sub, cmd)
+
+
+def prints_file(cmd, target, readers):
+    """True when a command segment prints the contents of a file matching `target`."""
+    text = unquote(cmd, keep=target)
+    for seg in re.split(r"\|\||&&|[;|\n]|(?<![>&<])&(?![>&])", text):
+        to_file = []
+
+        def strip_redirect(m):
+            fd, op, dup, dest = m.groups()
+            if op == "<":
+                return f" {dest} "           # input file: still an argument for our purposes
+            if fd in ("", "1", "&") and not dup:
+                to_file.append(dest)        # stdout goes to a file, so nothing reaches the transcript
+            return " "
+
+        seg = REDIRECT.sub(strip_redirect, seg)
+        words = seg.split()
+        i = 0
+        while i < len(words) and (words[i] in PREFIXES or re.match(r"^[A-Za-z_]\w*=", words[i])):
+            i += 1
+        if to_file or i >= len(words):
+            continue
+        head, args = os.path.basename(words[i]), words[i + 1:]
+        short = "".join(a[1:] for a in args if re.match(r"^-[A-Za-z]", a))
+        if head in GREPS:
+            if re.search(r"[clqL]", short) or {"--count", "--files-with-matches", "--files-without-match",
+                                               "--quiet", "--silent"} & set(args):
+                continue
+            if not re.search(r"[ef]", short):  # without -e/-f the first operand is the pattern, not a file
+                operands = [a for a in args if not a.startswith("-")]
+                args = operands[1:]
+        elif head == "sed":
+            if "i" in short or any(a.startswith("--in-place") for a in args):
+                continue
+        elif head == "cut":
+            if re.search(r"-f\s*1(?![-,\d])", seg):
+                continue
+        elif head not in readers:
+            continue
+        if any(re.search(target, a) for a in args):
+            return True
+    return False
+
+
 def jq_filters(cmd):
     for m in re.finditer(r"\bjq\b(?:\s+-[\w-]+)*\s+(['\"])(.*?)\1", cmd, re.S):
         yield m.group(2)
@@ -71,13 +133,8 @@ def rules(cmd, body):
                      "List names with `jq '.mcpServers | keys' ~/.claude.json`.")
 
     if re.search(CLAUDE_CFG, cmd):
-        # A quoted string is a pattern or replacement, not a file argument, unless it IS the path.
-        files_only = re.sub(r"'([^']*)'|\"([^\"]*)\"",
-                            lambda m: m.group(0)
-                            if re.fullmatch(r"[~$\w/ .{}()-]*" + CLAUDE_CFG, m.group(1) or m.group(2) or "")
-                            else "''", cmd)
-        if re.search(r"\b(cat|less|more|head|tail|bat|strings|sed|awk)\b[^|;&\n]*" + CLAUDE_CFG, files_only) or \
-           re.search(r"\bgrep\b(?![^|;&\n]*\s-[a-zA-Z]*[clqL]\b)[^|;&\n]*" + CLAUDE_CFG, files_only):
+        files_only = unquote(cmd, keep=CLAUDE_CFG)
+        if prints_file(cmd, CLAUDE_CFG, READERS):
             yield "S2", ("~/.claude.json holds MCP tokens; reading it raw puts them in the transcript. "
                          "Use jq on non-secret fields, e.g. `jq '.mcpServers | keys' ~/.claude.json`.")
         elif re.search(r"\bjq\b[^|;&\n]*" + CLAUDE_CFG, files_only) or \
@@ -126,11 +183,12 @@ def rules(cmd, body):
                  r"[^'\"\s|;&]*(key|token|secret|webhook|passw)[^'\"\s|;&]*\1(?:\s|$)", cmd, I):
         yield "S7", ("grep -v is not redaction: any secret whose line doesn't match the pattern gets printed. "
                      "Print names only, e.g. `cut -d= -f1 FILE`.")
-    if re.search(r"\b(cat(?!\s*>)|head|tail|less|more|bat|strings)\b[^|;&\n>]*" + SECRET_FILE, cmd):
-        yield "S8", ("Opening a secret file prints its values. Names only: `cut -d= -f1 .env` · "
+    if prints_file(cmd, SECRET_FILE, READERS | {"jq"}):
+        yield "S8", ("Reading a secret file prints its values. Names only: `cut -d= -f1 .env` · "
                      "presence: `grep -c '^NAME=' .env`.")
 
     # --- exit codes swallowed by a pipe ------------------------------------------
+    bare = unquote(cmd)  # a commit message that mentions `tsc | tail` is not a pipeline
     if not re.search(r"pipefail|PIPESTATUS|pipestatus", cmd):
         tests = (r"\b(pytest|vitest|jest|npm\s+(run\s+)?test|pnpm\s+(run\s+)?test|yarn\s+test|bun\s+test|"
                  r"go\s+test|cargo\s+test|ruff\s+check|tsc|make\s+test)\b(?:[^;&|\n]|\d?>&\d)*\|(?!\|)")
@@ -138,11 +196,11 @@ def rules(cmd, body):
                 r"(?:git\s+(?:-C\s+\S+\s+)?(?:commit|push)\b|(?:npx\s+)?wrangler\s+deploy\b|"
                 r"(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:deploy|publish|release)\b|npm\s+publish\b|"
                 r"\S*scripts/(?:ship|deploy|release)\b)")
-        if re.search(tests, cmd, re.M) and re.search(ship, cmd, re.M):
+        if re.search(tests, bare, re.M) and re.search(ship, bare, re.M):
             yield "P1", ("Tests piped into tail/grep return the exit code of the last command, so the "
                          "commit/push/deploy runs even when tests fail. Run tests on their own first, "
                          "or prefix `set -o pipefail;`.")
-        if re.search(SEG_START + r"gh\s+run\s+watch\b[^;&|\n]*\|(?!\|)", cmd, re.M):
+        if re.search(SEG_START + r"gh\s+run\s+watch\b[^;&|\n]*\|(?!\|)", bare, re.M):
             yield "P2", ("`gh run watch | tail` always returns tail's exit code. Use "
                          "`gh run watch <id> --exit-status` unpiped, then `gh run view <id> --json conclusion`.")
 

@@ -12,7 +12,7 @@ The handoff is a claim, not the truth: read it, then verify it against the repos
 
 ```bash
 H=$(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/relay_dir.py" handoffs)
-ls -t "$H"/HANDOFF-*.md 2>/dev/null | head -5
+ls "$H"/HANDOFF-*.md 2>/dev/null | sort -r | head -5     # newest date first (the date is in the name)
 ```
 
 - **Read only paths that `ls` printed.** Never build a file name from memory or from the topic. A guessed path that doesn't exist wastes the turn.

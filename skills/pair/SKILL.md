@@ -38,6 +38,7 @@ The frontmatter `status:` is the single source of truth. Its value is exactly on
 - Posts are appended, never edited. Each post is `### <role> · <ISO-8601 time>` followed by the content and a stamp line. To correct an earlier post, append an addendum.
 - Only the role whose turn it is writes. That keeps a plain file safe without locks.
 - Every post that sets `WAITING_ON_USER` ends with a `## For you` block. It opens with one plain sentence, then gives up to four options as `- [a] …`, then a line `If no answer: …`. The user should know within five seconds whether anything is needed from them.
+- **Coming back from `WAITING_ON_USER`:** whichever session the user answers in appends `### user · <time>` with the user's words quoted exactly. It copies the decision into the Decision Log and sets the status of the role that was blocked (usually `WAITING_ON_BUILDER`). This is also where a relayed approval (rule b below) is recorded.
 
 ## Independence gate (review only)
 

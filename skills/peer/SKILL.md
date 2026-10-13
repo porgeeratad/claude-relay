@@ -6,7 +6,7 @@ argument-hint: "<builder|planner|assist|second-opinion|reviewer> [--of <peer-nam
 
 # /relay:peer — handshake across sessions
 
-Requires Claude Code **v2.1.224+** on macOS, Linux and WSL 2, or **v2.1.234+** on native Windows. To check, run `/list-agents` (alias `/peers`). If the command isn't recognized, the session doesn't have cross-session messaging: say so and stop.
+Requires Claude Code **v2.1.224+** on macOS, Linux and WSL 2, or **v2.1.234+** on native Windows. If the `ListAgents` and `SendMessage` tools aren't in your tool list, this session has no cross-session messaging. Say so and stop: the user can confirm with `/list-agents` (alias `/peers`) and `claude --version`.
 
 ## 0. First line of your reply: identity
 

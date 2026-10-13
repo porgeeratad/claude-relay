@@ -21,11 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: leak-check (all tracked files)
         run: scripts/leak-check.sh all
-      - name: leak-check under /bin/bash 3.2 (macOS only)
+      - name: leak-check self-tests
+        run: bash tests/test_leak_check.sh
+      - name: leak-check + self-tests under /bin/bash 3.2 (macOS only)
         if: runner.os == 'macOS'
         run: |
           /bin/bash --version | head -1
           /bin/bash scripts/leak-check.sh all
+          /bin/bash tests/test_leak_check.sh
 
   tests:
     strategy:

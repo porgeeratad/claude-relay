@@ -1,4 +1,4 @@
-# Relay — ส่งงานต่อระหว่าง session ของ Claude Code
+# Relay — ส่งงานต่อข้าม session, review อิสระ และ hook กัน secret หลุด
 
 [English](README.md)
 
