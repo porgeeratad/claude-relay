@@ -43,5 +43,7 @@ jobs:
         run: python3 --version
       - name: bash_guard hook tests
         run: python3 tests/test_bash_guard.py
+      - name: bash_guard behavioural battery
+        run: python3 tests/test_bash_guard_battery.py
       - name: relay_dir resolver tests
         run: python3 tests/test_relay_dir.py

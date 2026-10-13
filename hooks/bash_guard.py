@@ -21,7 +21,9 @@ import sys
 
 I = re.I
 
-SECRET_FILE = (r"(?:\.env(?!\.(?:example|sample|template|dist|d\.ts|ts|js|mjs|cjs|py|go|rb|md)\b)(?:\.[\w.-]+)?\b|"
+# .env files, except templates (.env.example) and source files named after them (.env.schema.ts, env.d.ts).
+SECRET_FILE = (r"(?:\.env(?![\w-])(?!(?:\.[\w-]+)*\.(?:example|sample|template|dist)(?![\w-]))(?:\.[\w-]+)*"
+               r"(?<!\.ts)(?<!\.js)(?<!\.mjs)(?<!\.cjs)(?<!\.py)(?<!\.go)(?<!\.rb)(?<!\.md)(?![.\w-])|"
                r"\.envrc\b|\.netrc\b|\.pgpass\b|\.npmrc\b|\.pypirc\b|"
                r"credentials(?:\.json)?(?:\.(?:bak|old|orig|save|backup))?(?![\w.])|"
                r"id_(?:rsa|ed25519|ecdsa)\b(?!\.pub))")
@@ -212,8 +214,8 @@ def rules(cmd, body):
                      "Print names only, e.g. `cut -d= -f1 FILE`.")
     if prints_file(cmd, SECRET_FILE, READERS | {"jq"}) or (
             re.search(r"\b(python3?|node|ruby|perl)\b", cmd) and
-            re.search(r"(open|read_text|read_bytes|readFileSync|File\.read)\s*\(\s*['\"][^'\"\n]*" + SECRET_FILE +
-                      r"['\"]\s*(?:\)|,\s*['\"]r)", body)):
+            re.search(r"(open|read_text|read_bytes|readFileSync|readFile|File\.read)\s*\(\s*['\"][^'\"\n]*" +
+                      SECRET_FILE + r"['\"](?!\s*,\s*['\"][wax])", body)):   # write/append modes don't print
         yield "S8", ("Reading a secret file prints its values. Names only: `cut -d= -f1 .env` · "
                      "presence: `grep -c '^NAME=' .env`.")
 

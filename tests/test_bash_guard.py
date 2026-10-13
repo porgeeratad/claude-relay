@@ -56,6 +56,8 @@ DENY = [
     ("S8", "timeout 5 cat .env"),
     ("S8", "echo \"$(cat .env)\""),
     ("S8", "diff <(cat .env) <(cat .env.example)"),
+    ("S8", "node -e \"console.log(require('fs').readFileSync('.env','utf8'))\""),
+    ("S8", "cat config/.env.production.local"),
     ("S8", "cat .env > /dev/stdout"),
     ("S8", "cat ~/.aws/credentials.bak"),
     ("S8", "python3 -c \"print(open('.env').read())\""),
@@ -114,6 +116,9 @@ ALLOW = [
     "docker compose --env-file .env up -d",
     "diff <(cut -d= -f1 .env) <(cut -d= -f1 .env.example)",
     "echo cat .env",
+    "cat src/config/.env.schema.ts",
+    "cat .env.production.example",
+    "python3 -c \"open('.env', 'w').write('A=1')\"",
     "cat > notes.md <<'EOF'\nnever run `env` or `cat .env` here\nEOF",
 ]
 
